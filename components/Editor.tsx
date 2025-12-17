@@ -7,14 +7,14 @@ import {
   Wand2, 
   Loader2, 
   AlertCircle,
-  CheckCircle2,
-  Maximize2
+  Sparkles
 } from 'lucide-react';
-import { ImageData, AppState } from '../types';
+import { MediaData, AppState } from '../types';
+import { useLanguage } from './LanguageContext';
 
 interface EditorProps {
-  originalImage: ImageData;
-  resultImage: ImageData | null;
+  originalImage: MediaData;
+  resultMedia: MediaData | null;
   appState: AppState;
   onEdit: (prompt: string) => void;
   onReset: () => void;
@@ -23,23 +23,30 @@ interface EditorProps {
 
 export const Editor: React.FC<EditorProps> = ({ 
   originalImage, 
-  resultImage, 
+  resultMedia, 
   appState, 
   onEdit, 
   onReset,
   onUseResultAsSource
 }) => {
+  const { t } = useLanguage();
   const [prompt, setPrompt] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
+  const resultRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // Focus input on mount if we are ready to edit
     if (appState === AppState.EDITING) {
       inputRef.current?.focus();
     }
   }, [appState]);
 
-  const handleSubmit = (e?: React.FormEvent) => {
+  useEffect(() => {
+    if (resultMedia && window.innerWidth < 1024) {
+      resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [resultMedia]);
+
+  const handleSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault();
     if (prompt.trim() && appState !== AppState.PROCESSING) {
       onEdit(prompt);
@@ -47,104 +54,122 @@ export const Editor: React.FC<EditorProps> = ({
   };
 
   const handleDownload = () => {
-    if (!resultImage) return;
+    if (!resultMedia) return;
     const link = document.createElement('a');
-    link.href = resultImage.base64;
+    link.href = resultMedia.url;
     link.download = `product-perfect-${Date.now()}.png`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
 
-  const suggestedPrompts = [
-    "Remove the background",
-    "Place the product on a marble table",
-    "Add a soft shadow",
-    "Add a cinematic lighting effect",
-    "Make the background a solid pastel pink"
-  ];
-
   const isLoading = appState === AppState.PROCESSING;
   const isError = appState === AppState.ERROR;
 
   return (
-    <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden">
+    <div className="flex flex-col h-[calc(100dvh-64px)] lg:h-[calc(100vh-64px)] overflow-hidden">
       
       {/* Main Workspace */}
-      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden relative">
+      <div className="flex-1 overflow-y-auto lg:overflow-hidden flex flex-col lg:flex-row relative bg-transparent">
         
-        {/* Left: Original Image */}
-        <div className={`relative flex-1 bg-slate-100 flex items-center justify-center p-4 lg:p-8 transition-all duration-500 ${resultImage ? 'lg:border-r border-slate-200' : ''}`}>
-          <div className="relative max-w-full max-h-full shadow-2xl rounded-lg overflow-hidden group">
-            <img 
-              src={originalImage.base64} 
-              alt="Original" 
-              className="max-w-full max-h-[60vh] lg:max-h-[70vh] object-contain bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]" 
-            />
-            <div className="absolute top-4 left-4 bg-black/60 backdrop-blur-sm text-white text-xs px-3 py-1 rounded-full font-medium">
-              Original
-            </div>
-            
-             {/* Hover Reset Overlay */}
-            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                 <button 
-                  onClick={onReset}
-                  className="bg-white text-slate-900 px-4 py-2 rounded-full font-medium shadow-lg hover:bg-slate-50 transition-transform hover:scale-105 flex items-center gap-2"
-                 >
-                    <RotateCcw className="w-4 h-4" /> Start Over
-                 </button>
+        {/* Left: Original Image - Hidden when result exists */}
+        {!resultMedia && (
+          <div className="relative flex-1 flex items-center justify-center p-4 lg:p-8 animate-in fade-in duration-500">
+            <div className="relative max-w-full max-h-full shadow-2xl rounded-2xl overflow-hidden group border border-white/20">
+              <img 
+                src={originalImage.url} 
+                alt="Original" 
+                className="max-w-full max-h-[70vh] object-contain bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]" 
+              />
+              <div className="absolute top-4 left-4 bg-black/60 backdrop-blur-md text-white text-[10px] uppercase tracking-wider px-3 py-1.5 rounded-full font-bold">
+                {t.original}
+              </div>
+              
+              <div className="absolute inset-0 bg-black/20 lg:bg-black/40 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none lg:pointer-events-auto">
+                   <button 
+                    onClick={onReset}
+                    className="bg-white/90 backdrop-blur-md text-slate-900 px-5 py-2.5 rounded-full font-bold shadow-lg hover:bg-white transition-transform active:scale-95 flex items-center gap-2 pointer-events-auto text-sm"
+                   >
+                      <RotateCcw className="w-4 h-4" /> {t.startOver}
+                   </button>
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
-        {/* Right: Result Image (if exists) or Placeholder */}
-        {resultImage && (
-          <div className="relative flex-1 bg-slate-50 flex items-center justify-center p-4 lg:p-8 animate-in fade-in slide-in-from-right-10 duration-500">
-             <div className="relative max-w-full max-h-full shadow-2xl rounded-lg overflow-hidden group">
-              <img 
-                src={resultImage.base64} 
-                alt="Edited" 
-                className="max-w-full max-h-[60vh] lg:max-h-[70vh] object-contain bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]" 
-              />
-              <div className="absolute top-4 left-4 bg-indigo-600/90 backdrop-blur-sm text-white text-xs px-3 py-1 rounded-full font-medium shadow-sm flex items-center gap-1">
-                <Sparkles className="w-3 h-3" /> Edited
+        {/* Right: Result Media (if exists) - Takes full width if original is hidden */}
+        {resultMedia && (
+          <div ref={resultRef} className="relative flex-1 flex flex-col items-center justify-center p-4 lg:p-8 animate-in fade-in zoom-in duration-500">
+             <div className="relative max-w-full max-h-full shadow-2xl rounded-2xl overflow-hidden group mb-4 lg:mb-0 border border-white/20">
+                <img 
+                  src={resultMedia.url} 
+                  alt="Edited" 
+                  className="max-w-full max-h-[75vh] object-contain bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]" 
+                />
+              
+              <div className="absolute top-4 left-4 bg-indigo-600/90 backdrop-blur-md text-white text-[10px] uppercase tracking-wider px-3 py-1.5 rounded-full font-bold shadow-sm flex items-center gap-1">
+                <Sparkles className="w-3 h-3" /> {t.edited}
               </div>
 
-               <div className="absolute bottom-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+               <div className="hidden lg:flex absolute bottom-4 right-4 gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                  <button 
                    onClick={onUseResultAsSource}
-                   className="bg-white/90 backdrop-blur text-slate-800 p-2 rounded-full shadow-lg hover:bg-white transition-colors"
-                   title="Use as new original"
+                   className="bg-white/90 backdrop-blur-md text-slate-800 p-3 rounded-full shadow-lg hover:bg-white transition-colors"
+                   title={t.continue}
                  >
                    <ArrowRight className="w-5 h-5" />
                  </button>
                  <button 
                     onClick={handleDownload}
-                    className="bg-indigo-600 text-white p-2 rounded-full shadow-lg hover:bg-indigo-700 transition-colors"
-                    title="Download"
+                    className="bg-indigo-600 text-white p-3 rounded-full shadow-lg hover:bg-indigo-700 transition-colors"
+                    title={t.download}
                  >
                     <Download className="w-5 h-5" />
                  </button>
                </div>
             </div>
+
+            <div className="flex lg:hidden w-full max-w-sm gap-3 px-4 mb-8">
+              <button 
+                onClick={onUseResultAsSource}
+                className="flex-1 bg-white/80 backdrop-blur-md border border-white/40 text-slate-700 py-3.5 rounded-2xl font-bold shadow-sm flex items-center justify-center gap-2 active:bg-white"
+              >
+                <ArrowRight className="w-4 h-4" /> {t.continue}
+              </button>
+              <button 
+                onClick={handleDownload}
+                className="flex-[1.5] bg-indigo-600 text-white py-3.5 rounded-2xl font-bold shadow-lg shadow-indigo-100 flex items-center justify-center gap-2 active:bg-indigo-700"
+              >
+                <Download className="w-4 h-4" /> {t.download}
+              </button>
+            </div>
+            
+            {/* Start Over button when result is shown */}
+            <button 
+              onClick={onReset}
+              className="lg:absolute lg:top-4 lg:right-4 bg-white/40 hover:bg-white/60 backdrop-blur-md text-slate-700 px-5 py-2.5 rounded-full font-bold transition-colors flex items-center gap-2 text-sm shadow-sm"
+            >
+              <RotateCcw className="w-4 h-4" /> {t.startOver}
+            </button>
           </div>
         )}
         
         {/* Loading Overlay */}
         {isLoading && (
-          <div className="absolute inset-0 z-10 bg-white/60 backdrop-blur-sm flex items-center justify-center flex-col">
-            <div className="relative">
-              <div className="w-16 h-16 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin"></div>
-              <Sparkles className="w-6 h-6 text-indigo-600 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-pulse" />
+          <div className="absolute inset-0 z-30 bg-white/60 backdrop-blur-xl flex items-center justify-center flex-col p-6 text-center">
+            <div className="relative mb-6">
+              <div className="w-24 h-24 border-4 border-indigo-100/50 border-t-indigo-600 rounded-full animate-spin"></div>
+              <Sparkles className="w-10 h-10 text-indigo-600 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-pulse" />
             </div>
-            <p className="mt-4 text-slate-600 font-medium animate-pulse">Refining your image...</p>
+            <h2 className="text-2xl font-black text-slate-900 mb-2">{t.loadingTitle}</h2>
+            <p className="text-slate-600 font-semibold max-w-xs">{t.loadingDesc}</p>
           </div>
         )}
 
       </div>
 
-      {/* Control Panel (Sticky Bottom) */}
-      <div className="bg-white border-t border-slate-200 p-4 lg:p-6 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] z-20">
+      {/* Control Panel */}
+      <div className="bg-white/70 backdrop-blur-2xl border-t border-white/40 p-4 pb-safe shadow-[0_-20px_40px_rgba(0,0,0,0.03)] z-40">
         <div className="max-w-4xl mx-auto w-full">
           
           <form onSubmit={handleSubmit} className="relative flex items-center gap-2">
@@ -155,35 +180,34 @@ export const Editor: React.FC<EditorProps> = ({
                 type="text"
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
-                placeholder="Describe how to change the image (e.g., 'Remove background', 'Add neon lights')..."
-                className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all shadow-sm"
+                placeholder={t.placeholder}
+                className="w-full pl-12 pr-4 py-4 bg-white/60 border border-white/60 rounded-2xl text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all shadow-sm text-sm lg:text-base font-medium"
                 disabled={isLoading}
               />
             </div>
             <button
               type="submit"
               disabled={!prompt.trim() || isLoading}
-              className="px-6 py-4 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-2xl font-semibold shadow-lg shadow-indigo-200 transition-all active:scale-95 flex items-center gap-2"
+              className="px-6 lg:px-8 py-4 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-2xl font-bold shadow-xl shadow-indigo-100 transition-all active:scale-95 flex items-center gap-2 flex-shrink-0"
             >
                {isLoading ? (
                  <Loader2 className="w-5 h-5 animate-spin" />
                ) : (
                  <>
-                   <span>Magic</span>
+                   <span className="hidden sm:inline">{t.magic}</span>
                    <Send className="w-4 h-4" />
                  </>
                )}
             </button>
           </form>
 
-          {/* Suggestions */}
-          <div className="mt-4 flex flex-wrap gap-2 justify-center lg:justify-start">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider py-1.5">Try:</span>
-            {suggestedPrompts.map((s, i) => (
+          <div className="mt-5 flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] whitespace-nowrap pl-1">{t.try}</span>
+            {t.suggestions.map((s: string, i: number) => (
               <button
                 key={i}
                 onClick={() => setPrompt(s)}
-                className="px-3 py-1.5 rounded-lg bg-slate-50 hover:bg-indigo-50 text-slate-600 hover:text-indigo-700 border border-slate-200 hover:border-indigo-200 text-xs transition-colors"
+                className="px-4 py-2 rounded-xl bg-white/60 hover:bg-indigo-50 text-slate-600 hover:text-indigo-700 border border-white/80 hover:border-indigo-200 text-xs transition-all whitespace-nowrap font-bold shadow-sm"
                 disabled={isLoading}
               >
                 {s}
@@ -192,23 +216,20 @@ export const Editor: React.FC<EditorProps> = ({
           </div>
 
           {isError && (
-             <div className="mt-4 p-3 bg-red-50 border border-red-100 rounded-lg flex items-center gap-2 text-red-600 text-sm">
-                <AlertCircle className="w-4 h-4" />
-                <span>Something went wrong processing your image. Please try again with a different prompt.</span>
+             <div className="mt-4 p-4 bg-red-50/80 backdrop-blur-md border border-red-100 rounded-2xl flex items-center gap-3 text-red-600 text-xs lg:text-sm animate-in fade-in slide-in-from-top-2">
+                <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                <span className="font-bold">{t.error}</span>
              </div>
           )}
 
         </div>
       </div>
+      
+      <style>{`
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .pb-safe { padding-bottom: env(safe-area-inset-bottom, 1.5rem); }
+      `}</style>
     </div>
   );
 };
-
-// Helper for animations
-function Sparkles({ className }: { className?: string }) {
-  return (
-    <svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" />
-    </svg>
-  );
-}
