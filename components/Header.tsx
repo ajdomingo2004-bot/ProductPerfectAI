@@ -36,8 +36,10 @@ export const Header: React.FC = () => {
           
           <div className="flex items-center gap-3">
             <div className="relative group">
-              <button className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100 transition-colors">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest hidden md:inline">{t.languageLabel}</span>
+              <button className="flex items-center gap-2 px-2 md:px-3 py-1.5 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100 transition-colors">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                  {t.languageLabel}
+                </span>
                 <Globe className="w-4 h-4" />
                 <span className="hidden sm:inline ml-1 font-semibold">{languages.find(l => l.code === language)?.name}</span>
               </button>
